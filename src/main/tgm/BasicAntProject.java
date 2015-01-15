@@ -8,6 +8,6 @@ public class BasicAntProject {
   }
 
   public String getStringToPrint() {
-    return "Hello World!";
+    return "%helloworldtext%";
   }
 }

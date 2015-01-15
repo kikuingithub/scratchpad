@@ -10,6 +10,6 @@ public class TestBasicAntProject {
   @Test
   public void testGetStringToPrint() {
     BasicAntProject bap = new BasicAntProject();
-    assertEquals("Hello World!", bap.getStringToPrint());
+    assertEquals("%helloworldtext%", bap.getStringToPrint());
   }
 }

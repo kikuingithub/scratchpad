@@ -2,8 +2,15 @@
 <project name="BasicAntProject" basedir="." default="main">
   <property name="version" value="1.0.0" />
 
+  <property name="mail.user" value="rhollander" />
+  <property name="mail.pass" value="PW GOES HERE" />
+
+  <property name="code.dir" value="src" />
+  <property name="translated.code.dir" value="build/src" />
   <property name="src.dir" value="src/main" />
+  <property name="translated.src.dir" value="build/src/main" />
   <property name="test.dir" value="src/test" />
+  <property name="translated.test.dir" value="build/src/test" />
   <property name="lib.dir" value="lib" />
   <property name="classes.dir" value="build/classes" />
   <property name="testclasses.dir" value="build/testclasses" />
@@ -28,20 +35,14 @@
 		</sequential>
 	</macrodef>
 
-  <taskdef resource="net/jtools/classloadertask/antlib.xml">
-      <classpath>
-          <fileset dir="${basedir}/lib" includes="ant-classloader*.jar"/>
-      </classpath>
-  </taskdef>
-
   <path id="classpath.base"/>
   <path id="classpath.test">
     <pathelement location="${lib.dir}/hamcrest-core-1.3.jar" />
     <pathelement location="${lib.dir}/junit-4.12.jar" />
-    <pathelement location="${test.dir}" />
+    <pathelement location="${translated.test.dir}" />
     <pathelement location="${testclasses.dir}" />
     <pathelement location="${classes.dir}" />
-    <pathelement location="${src.dir}" />
+    <pathelement location="${translated.src.dir}" />
     <path refid="classpath.base" />
   </path>
 
@@ -50,7 +51,7 @@
   </target>
   <target name="compile">
     <mkdir dir="${classes.dir}" />
-    <javac srcdir="${src.dir}" destdir="${classes.dir}" />
+    <javac srcdir="${translated.src.dir}" destdir="${classes.dir}" />
   </target>
 
   <target name="jar" depends="compile">
@@ -62,11 +63,11 @@
     </jar>
   </target>
 
-  <target name="test" depends="clean,jar">
+  <target name="test" depends="jar">
     <delete dir="${testclasses.dir}" />
 
     <mkdir dir="${testclasses.dir}" />
-    <javac srcdir="${test.dir}" destdir="${testclasses.dir}">
+    <javac srcdir="${translated.test.dir}" destdir="${testclasses.dir}">
       <classpath refid="classpath.test"/>
     </javac>
     <mkdir dir="${report.dir}" />
@@ -87,9 +88,9 @@
   </target>
 
   <target name="doc" depends="jar">
-    <javadoc sourcepath="${src.dir}" destdir="${doc.dir}">
+    <javadoc sourcepath="${translated.src.dir}" destdir="${doc.dir}">
       <!-- Define which files / directory should get included, we include all -->
-      <fileset dir="${src.dir}">
+      <fileset dir="${translated.src.dir}">
         <include name="**" />
       </fileset>
     </javadoc>
@@ -98,7 +99,7 @@
 	  </zip>
   </target>
 
-  <target name="run" depends="jar">
+  <target name="run">
     <java jar="${jar.dir}/${ant.project.name}.jar" fork="true" />
   </target>
 
@@ -108,6 +109,14 @@
       <input message="Bitte Passwort des Users ${remote.user} unter ${remote.ip} eingeben" addproperty="remote.password" />
       <scp file="${jar.dir}/${ant.project.name}.jar" todir="${remote.user}:${remote.password}@${remote.ip}:${remote.dir}" trust="true" />
   </target>
+
+  <target name="sendmail">
+		<mail mailhost="sophos.tgm.ac.at" ssl="true" mailport="465" failonerror="true" user="${mail.user}" password="${mail.pass}" subject="Build completed">
+			<from address="${mail.user}@student.tgm.ac.at" />
+			<to address="${mail.user}@student.tgm.ac.at" />
+			<message>The build has completed!</message>
+		</mail>
+	</target>
 
   <target name="scm">
     <git command="add">
@@ -129,5 +138,51 @@
 		<git command="push" />
   </target>
 
-  <target name="main" depends="clean,jar,test,doc,run" />
+  <target name="lang-de">
+    <translate
+      toDir="${translated.code.dir}"
+      starttoken="%" endtoken="%"
+      bundle="resources/lang/lang"
+      bundlelanguage="de"
+      forceoverwrite="yes"
+      srcencoding="utf-8"
+      destencoding="utf-8"
+      bundleencoding="utf-8">
+      <fileset dir="${code.dir}">
+        <include name="**/*.java"/>
+      </fileset>
+    </translate>
+  </target>
+
+  <target name="lang-en">
+    <translate
+      toDir="${translated.code.dir}"
+      starttoken="%" endtoken="%"
+      bundle="resources/lang/lang"
+      bundlelanguage="en"
+      forceoverwrite="yes"
+      srcencoding="utf-8"
+      destencoding="utf-8"
+      bundleencoding="utf-8">
+      <fileset dir="${code.dir}">
+        <include name="**/*.java"/>
+      </fileset>
+    </translate>
+  </target>
+
+  <target name="main-de" depends="clean,lang-de">
+    <antcall target="jar" />
+    <antcall target="test" />
+    <antcall target="doc" />
+    <antcall target="sendmail" />
+  </target>
+
+  <target name="main-en" depends="clean,lang-en">
+    <antcall target="jar" />
+    <antcall target="test" />
+    <antcall target="doc" />
+    <antcall target="sendmail" />
+  </target>
+
+  <target name="main" depends="main-en" />
 </project>
