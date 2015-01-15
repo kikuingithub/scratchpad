@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="BasicAntProject" basedir="." default="main">
+  <property name="version" value="1.0.0" />
+
+  <property name="src.dir" value="src/main" />
+  <property name="test.dir" value="src/test" />
+  <property name="lib.dir" value="lib" />
+  <property name="classes.dir" value="build/classes" />
+  <property name="testclasses.dir" value="build/testclasses" />
+  <property name="jar.dir" value="build/jar" />
+  <property name="report.dir" value="build/report" />
+  <property name="doc.dir" value="build/doc" />
+  <property name="rawreport.dir" value="build/raw/report" />
+  <property name="manifest.main" value="tgm.BasicAntProject" />
+  <property name="remote.dir" value="/var/www/${ant.project.name}" />
+  <property name="commit.message" value="deploy-${ant.project.name}-${version}" />
+
+  <macrodef name="git">
+		<attribute name="command" />
+		<attribute name="dir" default="" />
+		<element name="args" optional="true" />
+		<sequential>
+			<echo message="git @{command}" />
+			<exec executable="git" dir="@{dir}">
+				<arg value="@{command}" />
+				<args/>
+			</exec>
+		</sequential>
+	</macrodef>
+
+  <taskdef resource="net/jtools/classloadertask/antlib.xml">
+      <classpath>
+          <fileset dir="${basedir}/lib" includes="ant-classloader*.jar"/>
+      </classpath>
+  </taskdef>
+
+  <path id="classpath.base"/>
+  <path id="classpath.test">
+    <pathelement location="${lib.dir}/hamcrest-core-1.3.jar" />
+    <pathelement location="${lib.dir}/junit-4.12.jar" />
+    <pathelement location="${test.dir}" />
+    <pathelement location="${testclasses.dir}" />
+    <pathelement location="${classes.dir}" />
+    <pathelement location="${src.dir}" />
+    <path refid="classpath.base" />
+  </path>
+
+  <target name="clean">
+    <delete dir="build" />
+  </target>
+  <target name="compile">
+    <mkdir dir="${classes.dir}" />
+    <javac srcdir="${src.dir}" destdir="${classes.dir}" />
+  </target>
+
+  <target name="jar" depends="compile">
+    <mkdir dir="${jar.dir}" />
+    <jar destfile="${jar.dir}/${ant.project.name}.jar" basedir="${classes.dir}">
+      <manifest>
+        <attribute name="Main-Class" value="${manifest.main}" />
+      </manifest>
+    </jar>
+  </target>
+
+  <target name="test" depends="clean,jar">
+    <delete dir="${testclasses.dir}" />
+
+    <mkdir dir="${testclasses.dir}" />
+    <javac srcdir="${test.dir}" destdir="${testclasses.dir}">
+      <classpath refid="classpath.test"/>
+    </javac>
+    <mkdir dir="${report.dir}" />
+    <mkdir dir="${rawreport.dir}" />
+    <junit printsummary="yes" haltonerror="yes" haltonfailure="yes">
+      <formatter type="plain" usefile="false" />
+      <formatter type="xml" />
+      <classpath refid="classpath.test" />
+      <formatter type="brief" usefile="false" />
+      <test name="tgm.test.TestBasicAntProject" todir="${rawreport.dir}" outfile="TestBasicAntProject" />
+    </junit>
+    <junitreport todir="${report.dir}">
+      <fileset dir="${rawreport.dir}">
+        <include name="*.xml"/>
+      </fileset>
+      <report format="frames" todir="${report.dir}"/>
+    </junitreport>
+  </target>
+
+  <target name="doc" depends="jar">
+    <javadoc sourcepath="${src.dir}" destdir="${doc.dir}">
+      <!-- Define which files / directory should get included, we include all -->
+      <fileset dir="${src.dir}">
+        <include name="**" />
+      </fileset>
+    </javadoc>
+    <zip destfile="${jar.dir}/${ant.project.name}.jar" update="true">
+      <zipfileset dir="${doc.dir}" prefix="doc/"/>
+	  </zip>
+  </target>
+
+  <target name="run" depends="jar">
+    <java jar="${jar.dir}/${ant.project.name}.jar" fork="true" />
+  </target>
+
+  <target name="copy" depends="jar">
+      <input message="Bitte die IP des Remote-Servers eingeben" addproperty="remote.ip" />
+      <input message="Bitte Username des Remote-Servers ${remote.ip} eingeben" addproperty="remote.user" />
+      <input message="Bitte Passwort des Users ${remote.user} unter ${remote.ip} eingeben" addproperty="remote.password" />
+      <scp file="${jar.dir}/${ant.project.name}.jar" todir="${remote.user}:${remote.password}@${remote.ip}:${remote.dir}" trust="true" />
+  </target>
+
+  <target name="scm">
+    <git command="add">
+      <args>
+        <arg value="--all" />
+      </args>
+    </git>
+    <git command="commit">
+      <args>
+        <arg value="-m ${commit.message}" />
+      </args>
+    </git>
+    <git command="pull">
+      <args>
+        <arg value="origin" />
+        <arg value="master" />
+      </args>
+    </git>
+		<git command="push" />
+  </target>
+
+  <target name="main" depends="clean,jar,test,doc,run" />
+</project>
